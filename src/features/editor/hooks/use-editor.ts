@@ -100,7 +100,6 @@ const buildEditor = ({
 
 	const saveJson = async (projectId: string) => {
 		const dataUrl = canvas.toJSON(JSON_KEYS);
-
 		await transformText(dataUrl.objects);
 		const fileString = `data:text/json;charset=utf-8,${encodeURIComponent(
 			JSON.stringify(dataUrl, null, "\t")

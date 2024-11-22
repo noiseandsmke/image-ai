@@ -195,7 +195,7 @@ export const Navbar = ({
 								<div>
 									<p>SVG</p>
 									<p className="text-xs text-muted-foreground">
-										Best for editing in vertor software
+										Best for editing in vector software
 									</p>
 								</div>
 							</DropdownMenuItem>
