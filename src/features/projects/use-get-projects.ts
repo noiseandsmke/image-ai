@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { client } from "@/lib/hono";
 import { InferResponseType } from "hono";
 
@@ -8,6 +8,8 @@ export type ResponseType = InferResponseType<
 >;
 
 export const useGetProjects = () => {
+	const queryClient = useQueryClient();
+
 	const query = useInfiniteQuery<ResponseType, Error>({
 		initialPageParam: 1,
 		getNextPageParam: (lastPage) => lastPage.nextPage,
@@ -28,5 +30,9 @@ export const useGetProjects = () => {
 		},
 	});
 
-	return query;
+	const invalidateProjects = () => {
+		return queryClient.invalidateQueries({ queryKey: ["projects"] });
+	};
+
+	return { ...query, invalidateProjects };
 };

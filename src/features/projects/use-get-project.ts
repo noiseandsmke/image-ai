@@ -7,23 +7,24 @@ export type ResponseType = InferResponseType<
 	200
 >;
 
-export const useGetProject = (id: string) => {
-	const query = useQuery({
-		enabled: !!id,
-		queryKey: ["project", { id }],
-		queryFn: async () => {
-			const response = await client.api.projects[":id"].$get({
-				param: { id },
-			});
-
-			if (!response.ok) {
-				throw new Error("An error occurred while fetching the project");
-			}
-
-			const { data } = await response.json();
-			return data;
-		},
+// Tách logic fetch thành function riêng
+export const fetchProject = async (id: string) => {
+	const response = await client.api.projects[":id"].$get({
+		param: { id },
 	});
 
-	return query;
+	if (!response.ok) {
+		throw new Error("An error occurred while fetching the project");
+	}
+
+	const { data } = await response.json();
+	return data;
+};
+
+export const useGetProject = (id: string) => {
+	return useQuery({
+		queryKey: ["project", { id }],
+		queryFn: () => fetchProject(id),
+		enabled: !!id,
+	});
 };
