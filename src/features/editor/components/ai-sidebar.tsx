@@ -75,7 +75,6 @@ export const AiSidebar = ({
 			);
 		}
 
-		// Lọc bỏ project hiện tại khỏi danh sách
 		const filteredProjects = data?.pages[0]?.data.filter(
 			(project) => project.id !== currentProjectId
 		);
