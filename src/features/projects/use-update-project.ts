@@ -3,35 +3,36 @@ import { InferRequestType, InferResponseType } from "hono";
 import { client } from "@/lib/hono";
 import { toast } from "sonner";
 
-type ResponseType = InferResponseType<typeof client.api.projects[":id"]["$patch"], 200>; 
-type RequestType = InferRequestType<typeof client.api.projects[":id"]["$patch"]>["json"];
+type ResponseType = InferResponseType<
+	(typeof client.api.projects)[":id"]["$patch"],
+	200
+>;
+type RequestType = InferRequestType<
+	(typeof client.api.projects)[":id"]["$patch"]
+>["json"];
 
 export const useUpdateProject = (id: string) => {
-  const clientQuery = useQueryClient();
+	const clientQuery = useQueryClient();
 
-  const mutation = useMutation<
-    ResponseType,
-    Error,
-    RequestType
-  >({
-    mutationKey: ["project", { id }],
-    mutationFn: async (json) => {
-      const response = await client.api.projects[":id"].$patch({
-        json,
-        param: { id },
-      });
-      if (!response.ok) throw new Error("Failed to update project");
+	const mutation = useMutation<ResponseType, Error, RequestType>({
+		mutationKey: ["project", { id }],
+		mutationFn: async (json) => {
+			const response = await client.api.projects[":id"].$patch({
+				json,
+				param: { id },
+			});
+			if (!response.ok) throw new Error("Failed to update project");
 
-      return await response.json();
-    },
-    onSuccess: () => {
-      clientQuery.invalidateQueries({ queryKey: ["projects"] });
-      clientQuery.invalidateQueries({ queryKey: ["project", { id }] });
-    },
-    onError: () => {
-      toast.error("Failed to udpate project")
-    }
-  })
+			return await response.json();
+		},
+		onSuccess: () => {
+			clientQuery.invalidateQueries({ queryKey: ["projects"] });
+			clientQuery.invalidateQueries({ queryKey: ["project", { id }] });
+		},
+		onError: () => {
+			toast.error("Failed to udpate project");
+		},
+	});
 
-  return mutation;
-}
+	return mutation;
+};
