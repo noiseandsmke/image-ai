@@ -25,6 +25,8 @@ import { ActiveTool, Editor } from "@/features/editor/types";
 import { cn } from "@/lib/utils";
 import { UserButton } from "@/features/auth/components/user-button";
 import { useMutationState } from "@tanstack/react-query";
+import { TiCloudStorage } from "react-icons/ti";
+import { useSaveDescription } from "@/features/editor/hooks/use-save-description";
 
 interface NavbarProps {
 	id: string;
@@ -39,6 +41,8 @@ export const Navbar = ({
 	activeTool,
 	onChangeActiveTool,
 }: NavbarProps) => {
+	const saveDescription = useSaveDescription();
+
 	const data = useMutationState({
 		filters: {
 			mutationKey: ["project", { id }],
@@ -66,6 +70,14 @@ export const Navbar = ({
 		},
 	});
 
+	const handleSaveDescription = () => {
+		if (!editor) return;
+
+		saveDescription.mutate({
+			id,
+			editor,
+		});
+	};
 	return (
 		<nav className="w-full flex items-center p-4 h-[68px] gap-x-8 border-b lg:pl-[34px]">
 			<Logo />
@@ -142,6 +154,18 @@ export const Navbar = ({
 						<div className="text-xs text-muted-foreground">Saved</div>
 					</div>
 				)}
+				<div className="flex items-center gap-x-2">
+					<Button
+						size="sm"
+						variant="ghost"
+						onClick={handleSaveDescription}
+						disabled={saveDescription.isPending}
+						className="flex items-center gap-x-2"
+					>
+						<TiCloudStorage className="size-4" />
+						{saveDescription.isPending ? "Saving..." : "Save description"}
+					</Button>
+				</div>
 				<div className="ml-auto flex items-center gap-x-4">
 					<DropdownMenu modal={false}>
 						<DropdownMenuTrigger asChild>
