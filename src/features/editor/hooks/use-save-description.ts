@@ -4,6 +4,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { InferResponseType } from "hono";
 import { toast } from "sonner";
+import { PineconeService } from "./use-pinecone";
 
 const genAI = new GoogleGenerativeAI("AIzaSyAgxZESiRWUrDBXfO1bU1a38O-oYUsd_nE");
 
@@ -24,6 +25,7 @@ async function imageToGenerativePart(imageFile: File) {
 
 export const useSaveDescription = () => {
 	const queryClient = useQueryClient();
+	const pineconeService = PineconeService.getInstance();
 
 	const mutation = useMutation<
 		ResponseType,
@@ -46,23 +48,19 @@ export const useSaveDescription = () => {
 				};
 
 				const currentTransform = editor.canvas.viewportTransform;
-
 				editor.canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
-
 				const dataUrl = editor.canvas.toDataURL(options);
-
 				const pngBlob = await fetch(dataUrl).then((res) => res.blob());
-
 				const imageFile = new File([pngBlob], `${id}.png`, {
 					type: "image/png",
 				});
 
+				toast.info("Analyzing image...");
+				// Generate image analysis
 				const imagePart = await imageToGenerativePart(imageFile);
-
 				const imageModel = genAI.getGenerativeModel({
 					model: "gemini-1.5-flash-8b",
 				});
-
 				const imagePrompt = `Analyze this image and describe:
           - Main visual elements (objects)
           - Their distribution
@@ -76,11 +74,13 @@ export const useSaveDescription = () => {
 					imagePart,
 				]);
 				const imageAnalysis = imageResult.response.text();
+				toast.success("Image analysis completed");
 
+				toast.info("Generating description...");
+				// Generate final description
 				const jsonModel = genAI.getGenerativeModel({
 					model: "gemini-1.5-flash",
 				});
-
 				const combinedPrompt = `Analyze these visual and technical elements:
 
           Visual elements: ${imageAnalysis}
@@ -94,13 +94,43 @@ export const useSaveDescription = () => {
 
 				const finalResult = await jsonModel.generateContent(combinedPrompt);
 				const finalText = finalResult.response.text();
-
 				let cleanText = finalText
 					.trim()
 					.replace(/```json\n?/g, "")
 					.replace(/```\n?/g, "");
 				const analysisResult = JSON.parse(cleanText);
+				toast.success("Description generated successfully");
 
+				toast.info("Creating embedding...");
+				// Generate embedding for the description
+				const embeddingModel = genAI.getGenerativeModel({
+					model: "text-embedding-004",
+				});
+				const embeddingResult = await embeddingModel.embedContent(
+					analysisResult.description
+				);
+				const embedding = embeddingResult.embedding.values;
+				toast.success("Embedding created successfully");
+
+				// Save to Pinecone
+				try {
+					toast.info("Saving to Pinecone...");
+					await pineconeService.createIndexIfNotExists();
+					await pineconeService.upsertVector(
+						id,
+						analysisResult.description,
+						embedding
+					);
+					toast.success("Saved to Pinecone successfully");
+				} catch (error) {
+					toast.error("Failed to save to Pinecone database");
+					if (error instanceof Error) {
+						toast.error(error.message);
+					}
+				}
+
+				// Save to API
+				toast.info("Saving description...");
 				const response = await client.api.projects[":id"].$patch({
 					param: { id },
 					json: {
@@ -119,7 +149,11 @@ export const useSaveDescription = () => {
 
 				return await response.json();
 			} catch (error) {
-				console.error("Error in save description:", error);
+				if (error instanceof Error) {
+					toast.error(`Error: ${error.message}`);
+				} else {
+					toast.error("An unexpected error occurred");
+				}
 				throw error;
 			}
 		},
@@ -128,10 +162,10 @@ export const useSaveDescription = () => {
 			queryClient.invalidateQueries({
 				queryKey: ["projects", { id: data.id }],
 			});
-			toast.success("Description saved successfully");
+			toast.success("All operations completed successfully");
 		},
 		onError: () => {
-			toast.error("Failed to save description");
+			toast.error("Failed to complete all operations");
 		},
 	});
 
