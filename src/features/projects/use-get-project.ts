@@ -7,7 +7,6 @@ export type ResponseType = InferResponseType<
 	200
 >;
 
-// Tách logic fetch thành function riêng
 export const fetchProject = async (id: string) => {
 	const response = await client.api.projects[":id"].$get({
 		param: { id },

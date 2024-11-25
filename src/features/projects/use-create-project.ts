@@ -1,33 +1,57 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { InferRequestType, InferResponseType } from "hono";
 import { client } from "@/lib/hono";
+import { PineconeService } from "@/features/editor/hooks/use-pinecone";
 import { toast } from "sonner";
 
-type ResponseType = InferResponseType<typeof client.api.projects["$post"], 200>; 
-type RequestType = InferRequestType<typeof client.api.projects["$post"]>["json"];
+interface CreateProjectInput {
+	name: string;
+	json: string;
+	width: number;
+	height: number;
+}
+
+interface CreateProjectPayload extends CreateProjectInput {
+	createdAt: string;
+	updatedAt: string;
+}
 
 export const useCreateProject = () => {
-  const queryClient = useQueryClient();
+	const queryClient = useQueryClient();
+	const pineconeService = PineconeService.getInstance();
 
-  const mutation = useMutation<
-    ResponseType,
-    Error,
-    RequestType
-  >({
-    mutationFn: async (json) => {
-      const response = await client.api.projects.$post({ json });
-      if (!response.ok) throw new Error("Something went wrong");
+	const mutation = useMutation({
+		mutationFn: async (values: CreateProjectInput) => {
+			try {
+				const payload: CreateProjectPayload = {
+					...values,
+					createdAt: new Date().toISOString(),
+					updatedAt: new Date().toISOString(),
+				};
 
-      return await response.json();
-    },
-    onSuccess: () => {
-      toast.success("Project created")
-      queryClient.invalidateQueries({ queryKey: ["projects"] });
-    },
-    onError: () => {
-      toast.error("Failed to create project")
-    }
-  })
+				const response = await client.api.projects.$post({
+					json: payload,
+				});
 
-  return mutation;
-}
+				if (!response.ok) {
+					throw new Error("Failed to create project");
+				}
+
+				const data = await response.json();
+
+				await pineconeService.createEmptyVector(data.data.id);
+
+				return data;
+			} catch (error) {
+				if (error instanceof Error) {
+					toast.error(error.message);
+				}
+				throw error;
+			}
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["projects"] });
+		},
+	});
+
+	return mutation;
+};
