@@ -6,7 +6,7 @@ import { InferResponseType } from "hono";
 import { toast } from "sonner";
 import { PineconeService } from "./use-pinecone";
 
-const genAI = new GoogleGenerativeAI("AIzaSyAgxZESiRWUrDBXfO1bU1a38O-oYUsd_nE");
+const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!);
 
 type ResponseType = InferResponseType<
 	(typeof client.api.projects)[":id"]["$patch"],
@@ -56,7 +56,7 @@ export const useSaveDescription = () => {
 				});
 
 				toast.info("Analyzing image...");
-				// Generate image analysis
+
 				const imagePart = await imageToGenerativePart(imageFile);
 				const imageModel = genAI.getGenerativeModel({
 					model: "gemini-1.5-flash-8b",
@@ -77,7 +77,7 @@ export const useSaveDescription = () => {
 				toast.success("Image analysis completed");
 
 				toast.info("Generating description...");
-				// Generate final description
+
 				const jsonModel = genAI.getGenerativeModel({
 					model: "gemini-1.5-flash",
 				});
@@ -102,7 +102,7 @@ export const useSaveDescription = () => {
 				toast.success("Description generated successfully");
 
 				toast.info("Creating embedding...");
-				// Generate embedding for the description
+
 				const embeddingModel = genAI.getGenerativeModel({
 					model: "text-embedding-004",
 				});
@@ -112,7 +112,6 @@ export const useSaveDescription = () => {
 				const embedding = embeddingResult.embedding.values;
 				toast.success("Embedding created successfully");
 
-				// Save to Pinecone
 				try {
 					toast.info("Saving to Pinecone...");
 					await pineconeService.createIndexIfNotExists();
@@ -129,7 +128,6 @@ export const useSaveDescription = () => {
 					}
 				}
 
-				// Save to API
 				toast.info("Saving description...");
 				const response = await client.api.projects[":id"].$patch({
 					param: { id },
