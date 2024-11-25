@@ -1,6 +1,5 @@
 import { Pinecone } from "@pinecone-database/pinecone";
 
-// const PINECONE_API_KEY = process.env.PINECONE_API_KEY!;
 const PINECONE_INDEX_NAME = "projects";
 const PINECONE_DIMENSION = 768;
 
@@ -10,8 +9,7 @@ export class PineconeService {
 
 	private constructor() {
 		this.client = new Pinecone({
-			apiKey:
-				"pcsk_4pd7z3_SkwMV7kckWeZ1GwQW7jLi6QazwYRD6VN7krdKAPR7167qmoL6kFPm4zsGJ4PC9e",
+			apiKey: process.env.NEXT_PUBLIC_PINECONE_API_KEY!,
 		});
 	}
 
@@ -41,34 +39,101 @@ export class PineconeService {
 						},
 					},
 				});
-				console.log(`Created new Pinecone index: ${PINECONE_INDEX_NAME}`);
-			} else {
-				console.log(`Pinecone index ${PINECONE_INDEX_NAME} already exists`);
 			}
 		} catch (error) {
-			console.error("Error creating Pinecone index:", error);
+			throw error;
+		}
+	}
+
+	async vectorExists(id: string): Promise<boolean> {
+		try {
+			const index = this.client.index(PINECONE_INDEX_NAME);
+			const fetchResponse = await index.fetch([id]);
+			return fetchResponse.records[id] !== undefined;
+		} catch (error) {
+			return false;
+		}
+	}
+
+	async updateVector(id: string, description: string, embedding?: number[]) {
+		try {
+			const index = this.client.index(PINECONE_INDEX_NAME);
+
+			const updateData: {
+				id: string;
+				values?: number[];
+				metadata?: { id: string; description: string };
+			} = {
+				id,
+			};
+
+			if (embedding) {
+				updateData.values = embedding;
+			}
+
+			updateData.metadata = {
+				id,
+				description,
+			};
+
+			await index.update(updateData);
+		} catch (error) {
 			throw error;
 		}
 	}
 
 	async upsertVector(id: string, description: string, embedding: number[]) {
 		try {
+			const exists = await this.vectorExists(id);
+
+			if (exists) {
+				await this.updateVector(id, description, embedding);
+			} else {
+				const index = this.client.index(PINECONE_INDEX_NAME);
+				await index.upsert([
+					{
+						id,
+						values: embedding,
+						metadata: {
+							id,
+							description,
+						},
+					},
+				]);
+			}
+		} catch (error) {
+			throw error;
+		}
+	}
+
+	async deleteVector(id: string) {
+		try {
 			const index = this.client.index(PINECONE_INDEX_NAME);
+			await index.deleteOne(id);
+		} catch (error) {
+			throw error;
+		}
+	}
+
+	async createEmptyVector(id: string) {
+		try {
+			const index = this.client.index(PINECONE_INDEX_NAME);
+			const initialEmbedding = Array.from(
+				{ length: PINECONE_DIMENSION },
+				() => Math.random() * 0.01
+			);
 
 			await index.upsert([
 				{
 					id,
-					values: embedding,
+					values: initialEmbedding,
 					metadata: {
 						id,
-						description,
+						description: "",
 					},
 				},
 			]);
-
-			console.log(`Successfully upserted vector for project ${id}`);
 		} catch (error) {
-			console.error("Error upserting vector:", error);
 			throw error;
 		}
 	}
@@ -82,12 +147,8 @@ export class PineconeService {
 
 			if (indexExists) {
 				await this.client.deleteIndex(PINECONE_INDEX_NAME);
-				console.log(`Deleted Pinecone index: ${PINECONE_INDEX_NAME}`);
-			} else {
-				console.log(`Index ${PINECONE_INDEX_NAME} does not exist`);
 			}
 		} catch (error) {
-			console.error("Error deleting Pinecone index:", error);
 			throw error;
 		}
 	}
@@ -104,7 +165,6 @@ export class PineconeService {
 
 			return queryResponse.matches;
 		} catch (error) {
-			console.error("Error querying vectors:", error);
 			throw error;
 		}
 	}
