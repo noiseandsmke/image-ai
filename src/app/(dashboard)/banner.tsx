@@ -5,26 +5,70 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { useCreateProject } from "@/features/projects/use-create-project";
 import { toast } from "sonner";
-import { PineconeService } from "@/features/editor/hooks/use-pinecone";
+
+const createInitialJson = (width: number, height: number) => {
+	return JSON.stringify({
+		version: "5.3.0",
+		objects: [
+			{
+				type: "rect",
+				version: "5.3.0",
+				originX: "left",
+				originY: "top",
+				left: width / 2,
+				top: height / 2,
+				width: width,
+				height: height,
+				fill: "white",
+				stroke: null,
+				strokeWidth: 0,
+				strokeDashArray: null,
+				strokeLineCap: "butt",
+				strokeDashOffset: 0,
+				strokeLineJoin: "miter",
+				strokeUniform: false,
+				strokeMiterLimit: 4,
+				scaleX: 1,
+				scaleY: 1,
+				angle: 0,
+				flipX: false,
+				flipY: false,
+				opacity: 1,
+				shadow: null,
+				visible: true,
+				backgroundColor: "",
+				fillRule: "nonzero",
+				paintFirst: "fill",
+				globalCompositeOperation: "source-over",
+				skewX: 0,
+				skewY: 0,
+				rx: 0,
+				ry: 0,
+				name: "clip",
+			},
+		],
+	});
+};
 
 export const Banner = () => {
 	const router = useRouter();
 	const mutation = useCreateProject();
-	const pineconeService = PineconeService.getInstance();
 
 	const onClick = async () => {
+		const width = 900;
+		const height = 1200;
+
 		try {
 			mutation.mutate(
 				{
 					name: "Untitled project",
-					json: "",
-					width: 900,
-					height: 1200,
+					json: createInitialJson(width, height),
+					width,
+					height,
 				},
 				{
-					onSuccess: async ({ data }) => {
+					onSuccess: ({ data }) => {
 						router.push(`/editor/${data.id}`);
-						await pineconeService.createEmptyVector(data.id);
 					},
 					onError: (error) => {
 						toast.error("Failed to create project. Please try again.");
@@ -60,7 +104,7 @@ export const Banner = () => {
 					onClick={onClick}
 					disabled={mutation.isPending}
 				>
-					Start creating
+					{mutation.isPending ? "Creating..." : "Start creating"}
 					<ArrowRight className="size-4 ml-2" />
 				</Button>
 			</div>
