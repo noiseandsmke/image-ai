@@ -2,11 +2,9 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
-import { useGenerateImage } from "@/features/ai/api/use-generate-image";
 import { ToolSidebarClose } from "@/features/editor/components/tool-sidebar-close";
 import { ToolSidebarHeader } from "@/features/editor/components/tool-sidebar-header";
 import { ActiveTool, Editor } from "@/features/editor/types";
-import { usePaywall } from "@/features/subscriptions/hooks/use-paywall";
 import { useGetProjects } from "@/features/projects/use-get-projects";
 import { fetchProject } from "@/features/projects/use-get-project";
 import { cn } from "@/lib/utils";
@@ -14,6 +12,8 @@ import { FileIcon, Loader } from "lucide-react";
 import { useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { useSearchProjects } from "@/features/projects/use-search-projects";
 
 interface AiSidebarProps {
 	editor: Editor | undefined;
@@ -26,8 +26,6 @@ export const AiSidebar = ({
 	activeTool,
 	onChangeActiveTool,
 }: AiSidebarProps) => {
-	const { shouldBlock, triggerPaywall } = usePaywall();
-	const mutation = useGenerateImage();
 	const [value, setValue] = useState("");
 	const { data, status } = useGetProjects();
 	const router = useRouter();
@@ -35,23 +33,17 @@ export const AiSidebar = ({
 	const queryClient = useQueryClient();
 	const currentProjectId = params.projectId as string;
 	const [isNavigating, setIsNavigating] = useState(false);
+	const { searchProjects, isSearching } = useSearchProjects();
+	const [searchResults, setSearchResults] = useState<string[]>([]);
 
-	const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+	const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
-
-		if (shouldBlock) {
-			triggerPaywall();
-			return;
+		try {
+			const projectIds = await searchProjects(value);
+			setSearchResults(projectIds);
+		} catch (error) {
+			toast.error("Failed to process search");
 		}
-
-		mutation.mutate(
-			{ prompt: value },
-			{
-				onSuccess: ({ data }) => {
-					editor?.addImage(data);
-				},
-			}
-		);
 	};
 
 	const onClose = () => {
@@ -76,14 +68,14 @@ export const AiSidebar = ({
 				}),
 			]);
 		} catch (error) {
-			console.error("Navigation failed:", error);
+			toast.error("Navigation failed");
 		} finally {
 			setIsNavigating(false);
 		}
 	};
 
 	const renderProjects = () => {
-		if (status === "pending") {
+		if (status === "pending" || isSearching) {
 			return (
 				<div className="flex justify-center py-4">
 					<Loader className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -99,14 +91,21 @@ export const AiSidebar = ({
 			);
 		}
 
-		const filteredProjects = data?.pages[0]?.data.filter(
-			(project) => project.id !== currentProjectId
-		);
+		const filteredProjects = data?.pages[0]?.data.filter((project) => {
+			if (searchResults.length > 0) {
+				return (
+					searchResults.includes(project.id) && project.id !== currentProjectId
+				);
+			}
+			return project.id !== currentProjectId;
+		});
 
 		if (!filteredProjects?.length) {
 			return (
 				<div className="text-center text-sm text-muted-foreground">
-					No other projects available
+					{searchResults.length > 0
+						? "No matching projects found"
+						: "No other projects available"}
 				</div>
 			);
 		}
@@ -154,40 +153,38 @@ export const AiSidebar = ({
 				)}
 			>
 				<ToolSidebarHeader
-					title="AI"
-					description="Retrieve image project by using LLM"
+					title="AI Search"
+					description="Search projects by describing their content"
 				/>
 				<ScrollArea className="flex-1">
-					<form className="p-4 space-y-6" onSubmit={onSubmit}>
-						<Textarea
-							disabled={mutation.isPending}
-							placeholder="Write your prompt here..."
-							cols={30}
-							rows={10}
-							required
-							minLength={3}
-							value={value}
-							onChange={(e) => setValue(e.target.value)}
-						/>
-						<Button
-							disabled={mutation.isPending}
-							type="submit"
-							className="w-full"
-						>
-							{mutation.isPending ? (
-								<div className="flex items-center gap-2">
-									<Loader className="h-4 w-4 animate-spin" />
-									Generating...
-								</div>
-							) : (
-								"Generate Image"
-							)}
-						</Button>
-					</form>
+					<div className="p-4">
+						<form className="space-y-6" onSubmit={onSubmit}>
+							<Textarea
+								disabled={isSearching}
+								placeholder="Describe the project you're looking for..."
+								cols={30}
+								rows={10}
+								required
+								minLength={3}
+								value={value}
+								onChange={(e) => setValue(e.target.value)}
+							/>
+							<Button disabled={isSearching} type="submit" className="w-full">
+								{isSearching ? (
+									<div className="flex items-center gap-2">
+										<Loader className="h-4 w-4 animate-spin" />
+										Searching...
+									</div>
+								) : (
+									"Search Projects"
+								)}
+							</Button>
+						</form>
+					</div>
 
 					<div className="px-4 pt-2 pb-4">
 						<h3 className="font-medium text-sm text-muted-foreground mb-4">
-							Other Projects
+							{searchResults.length > 0 ? "Search Results" : "Other Projects"}
 						</h3>
 						{renderProjects()}
 					</div>
