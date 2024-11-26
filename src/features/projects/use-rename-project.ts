@@ -1,15 +1,12 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { InferRequestType, InferResponseType } from "hono";
 import { client } from "@/lib/hono";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { InferResponseType } from "hono";
 import { toast } from "sonner";
 
 type ResponseType = InferResponseType<
 	(typeof client.api.projects)[":id"]["$patch"],
 	200
 >;
-type RequestType = InferRequestType<
-	(typeof client.api.projects)[":id"]["$patch"]
->["param"];
 
 export const useRenameProject = () => {
 	const queryClient = useQueryClient();
