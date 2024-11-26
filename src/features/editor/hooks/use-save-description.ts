@@ -81,16 +81,37 @@ export const useSaveDescription = () => {
 				const jsonModel = genAI.getGenerativeModel({
 					model: "gemini-1.5-flash",
 				});
-				const combinedPrompt = `Analyze these visual and technical elements:
+				const combinedPrompt = `Analyze the design content from both visual and technical data:
 
-          Visual elements: ${imageAnalysis}
-          Technical elements: ${JSON.stringify(jsonData)}
-
-          IMPORTANT: You must return a valid JSON object with exactly this structure, no additional text and provide only descriptive adjectives and nouns. No sentences.:
-          {
-            "id": "${id}",
-            "description": "descriptive words here"
-          }`;
+				Visual analysis: ${imageAnalysis}
+				
+				Technical analysis: Extract from JSON:
+				1. Find all text content in "text" fields: ${JSON.stringify(
+					jsonData.objects
+						.filter((obj) => obj.type === "textbox")
+						.map((obj) => (obj as any).text)
+				)}
+				2. Analyze object properties and numerical values
+				3. Note any percentages, measurements, or specific numbers
+				
+				IMPORTANT: Create a comprehensive description that preserves:
+				- All exact text content
+				- All numerical values (especially percentages)
+				- Key visual elements
+				- Color schemes
+				- Layout characteristics
+				
+				Return a valid JSON object with this exact structure:
+				{
+					"id": "${id}",
+					"description": "text fields from JSON, design:[key visual elements], colors:[color scheme], layout:[composition details]"
+				}
+				
+				Ensure that:
+				1. All text content is preserved exactly as written
+				2. All numbers and percentages are included
+				3. Key design elements are described
+				4. Color information is accurate`;
 
 				const finalResult = await jsonModel.generateContent(combinedPrompt);
 				const finalText = finalResult.response.text();
