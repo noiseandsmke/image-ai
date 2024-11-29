@@ -1,10 +1,10 @@
+import { PineconeService } from "@/features/editor/hooks/use-pinecone";
 import { Editor } from "@/features/editor/types";
 import { client } from "@/lib/hono";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { InferResponseType } from "hono";
 import { toast } from "sonner";
-import { PineconeService } from "./use-pinecone";
 
 const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!);
 
