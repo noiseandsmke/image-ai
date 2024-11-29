@@ -1,19 +1,18 @@
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import { ToolSidebarClose } from "@/features/editor/components/tool-sidebar-close";
 import { ToolSidebarHeader } from "@/features/editor/components/tool-sidebar-header";
 import { ActiveTool, Editor } from "@/features/editor/types";
 import { useGetProjects } from "@/features/projects/use-get-projects";
-import { fetchProject } from "@/features/projects/use-get-project";
+import { useSearchProjects } from "@/features/projects/use-search-projects";
+import { useConfirm } from "@/hooks/use-confirm";
 import { cn } from "@/lib/utils";
 import { FileIcon, Loader } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useSearchProjects } from "@/features/projects/use-search-projects";
 
 interface AiSidebarProps {
 	editor: Editor | undefined;
@@ -30,11 +29,13 @@ export const AiSidebar = ({
 	const { data, status } = useGetProjects();
 	const router = useRouter();
 	const params = useParams();
-	const queryClient = useQueryClient();
 	const currentProjectId = params.projectId as string;
-	const [isNavigating, setIsNavigating] = useState(false);
-	const { searchProjects, isSearching } = useSearchProjects();
 	const [searchResults, setSearchResults] = useState<string[]>([]);
+	const { searchProjects, isSearching } = useSearchProjects();
+	const [ConfirmationDialog, confirm] = useConfirm(
+		"Switch Project",
+		"Are you sure you want to switch to this project? Any unsaved changes will be lost."
+	);
 
 	const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
@@ -52,25 +53,13 @@ export const AiSidebar = ({
 
 	const handleProjectClick = async (projectId: string) => {
 		try {
-			setIsNavigating(true);
+			const ok = await confirm();
+			if (!ok) return;
 
-			await queryClient.prefetchQuery({
-				queryKey: ["project", { id: projectId }],
-				queryFn: () => fetchProject(projectId),
-			});
-
-			await router.push(`/editor/${projectId}`);
-
-			await Promise.all([
-				queryClient.invalidateQueries({ queryKey: ["projects"] }),
-				queryClient.invalidateQueries({
-					queryKey: ["project", { id: projectId }],
-				}),
-			]);
+			router.push(`/editor/${projectId}`);
+			onClose();
 		} catch (error) {
 			toast.error("Navigation failed");
-		} finally {
-			setIsNavigating(false);
 		}
 	};
 
@@ -146,6 +135,7 @@ export const AiSidebar = ({
 
 	return (
 		<>
+			<ConfirmationDialog />
 			<aside
 				className={cn(
 					"bg-white relative border-r z-[40] w-[360px] h-full flex flex-col",
@@ -191,15 +181,6 @@ export const AiSidebar = ({
 				</ScrollArea>
 				<ToolSidebarClose onClick={onClose} />
 			</aside>
-
-			{isNavigating && (
-				<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
-					<div className="bg-white p-4 rounded-lg shadow-lg flex items-center gap-2">
-						<Loader className="h-5 w-5 animate-spin text-muted-foreground" />
-						<span className="text-sm">Loading project...</span>
-					</div>
-				</div>
-			)}
 		</>
 	);
 };
