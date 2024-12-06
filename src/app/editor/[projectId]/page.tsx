@@ -7,41 +7,36 @@ import { Loader, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 
 interface EditorProjectIdPageProps {
-  params: {
-    projectId: string;
-  }
+	params: {
+		projectId: string;
+	};
 }
 
-const EditorProjectIdPage = ({
-  params
-}: EditorProjectIdPageProps) => {
-  const { data, isLoading, isError } = useGetProject(params.projectId);
+const EditorProjectIdPage = ({ params }: EditorProjectIdPageProps) => {
+	const { data, isLoading, isError } = useGetProject(params.projectId);
+	console.log(data);
 
-  if (isLoading || !data) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center">
-        <Loader className="size-6 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
+	if (isLoading || !data) {
+		return (
+			<div className="h-full flex flex-col items-center justify-center">
+				<Loader className="size-6 animate-spin text-muted-foreground" />
+			</div>
+		);
+	}
 
-  if (isError) {
-    return (
-      <div className="h-full flex flex-col gap-y-5 items-center justify-center">
-        <TriangleAlert className="size-6 text-muted-foreground" />
-        <p className="text-muted-foreground text-sm">
-          Failed to fetch project
-        </p>
-        <Button asChild variant="secondary" >
-          <Link href="/">
-            Back to Home
-          </Link>
-        </Button>
-      </div>
-    )
-  }
+	if (isError) {
+		return (
+			<div className="h-full flex flex-col gap-y-5 items-center justify-center">
+				<TriangleAlert className="size-6 text-muted-foreground" />
+				<p className="text-muted-foreground text-sm">Failed to fetch project</p>
+				<Button asChild variant="secondary">
+					<Link href="/">Back to Home</Link>
+				</Button>
+			</div>
+		);
+	}
 
-  return <Editor initialData={data} /> 
+	return <Editor initialData={data} />;
 };
 
 export default EditorProjectIdPage;

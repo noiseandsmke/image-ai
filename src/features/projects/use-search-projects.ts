@@ -6,134 +6,169 @@ import { toast } from "sonner";
 const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!);
 
 const PROMPT_TEMPLATE = `
-Based on the provided descriptions, analyze and find the most similar projects.
-Compare the search description with the stored project descriptions and return the IDs of matching projects.
+Based on the provided descriptions, analyze and find similar projects.
+Compare the search description with the stored project descriptions and return projects with their EXACT similarity scores.
 
-Stored Project Descriptions:
+Stored project descriptions:
 {context}
 
-Search Description:
+Search description:
 {description}
 
 Instructions:
-1. Compare the visual elements, style, and composition between the search description and stored descriptions
-2. Consider semantic similarity rather than exact matches
-3. Return only the most relevant project IDs
+1. First, find projects that DIRECTLY match the search criteria
+2. Then, find additional projects based on:
+   - Related themes or elements
+   - Similar visual style
+   - Common color schemes
+   - Comparable compositions
+3. IMPORTANT RULES:
+   - If search term matches exactly (like searching "bee" and finding a bee image), that project should be first
+   - MUST return ALL available projects if total count ≤ 4
+   - MUST return EXACTLY 4 projects if total count > 4
+   - Sort by similarity score in descending order
+   - Use ONLY the exact similarity scores from descriptions
+   - Include projects to meet the count requirement, even if less relevant
 
-Return a valid JSON array of project IDs that match the search description: ["id1", "id2", "id3"]
+Return a valid JSON array following these rules:
+- If > 4 projects available: Return exactly 4 projects
+- If <= 4 projects available: Return all projects
+- Never return empty array
+
+Example response format:
+[
+  {"id": "project1", "similarity": score},  // Most relevant
+  {"id": "project2", "similarity": score},  // Next relevant
+  {"id": "project3", "similarity": score},  // Include less relevant
+  {"id": "project4", "similarity": score}   // Include to meet maximum
+]
+
+CRITICAL: You MUST return either:
+- ALL projects if total count is 4 or less
+- EXACTLY 4 projects if total count is more than 4
+- Sort by similarity score from highest to lowest
+- Use exact similarity scores from descriptions
 `;
 
+export type SearchResult = {
+  id: string;
+  similarity: number;
+};
+
 export const useSearchProjects = () => {
-	const [isSearching, setIsSearching] = useState(false);
-	const pineconeService = PineconeService.getInstance();
+  const [isSearching, setIsSearching] = useState(false);
+  const pineconeService = PineconeService.getInstance();
 
-	const cleanAndParseResponse = (response: string): string[] => {
-		try {
-			const cleanResponse = response
-				.trim()
-				.replace(/```json\n?/g, "")
-				.replace(/```\n?/g, "")
-				.replace(/[\n\r]/g, "")
-				.trim();
+  const cleanAndParseResponse = (response: string): SearchResult[] => {
+    try {
+      const cleanResponse = response
+        .trim()
+        .replace(/```json\n?/g, "")
+        .replace(/```\n?/g, "")
+        .replace(/[\n\r]/g, "")
+        .trim();
 
-			const parsed = JSON.parse(cleanResponse);
+      const parsed = JSON.parse(cleanResponse);
 
-			if (Array.isArray(parsed)) {
-				return parsed;
-			} else if (typeof parsed === "string") {
-				return [parsed];
-			} else if (typeof parsed === "object" && parsed !== null) {
-				return parsed.id ? [parsed.id] : [];
-			}
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => ({
+          id: item.id,
+          similarity: Number(item.similarity),
+        }));
+      }
 
-			const idMatches = cleanResponse.match(/"([^"]+)"/g);
-			if (idMatches) {
-				return idMatches.map((match) => match.replace(/"/g, ""));
-			}
+      return [];
+    } catch (error) {
+      console.error("Error parsing response:", error);
+      return [];
+    }
+  };
 
-			return [];
-		} catch (error) {
-			return [];
-		}
-	};
+  const searchProjects = async (description: string) => {
+    try {
+      setIsSearching(true);
+      toast.info("Analyzing your description...");
 
-	const searchProjects = async (description: string) => {
-		try {
-			setIsSearching(true);
-			toast.info("Analyzing your description...");
+      const embeddingModel = genAI.getGenerativeModel({
+        model: "text-embedding-004",
+      });
+      const embeddingResult = await embeddingModel.embedContent(description);
+      const searchEmbedding = embeddingResult.embedding.values;
 
-			const embeddingModel = genAI.getGenerativeModel({
-				model: "text-embedding-004",
-			});
-			const embeddingResult = await embeddingModel.embedContent(description);
-			const searchEmbedding = embeddingResult.embedding.values;
+      toast.info("Finding similar projects...");
+      const searchResults = await pineconeService.queryVectors(
+        searchEmbedding,
+        20,
+      );
 
-			toast.info("Finding similar projects...");
-			const searchResults = await pineconeService.queryVectors(
-				searchEmbedding,
-				20
-			);
+      if (!searchResults?.length) {
+        toast.info("No similar projects found");
+        return [];
+      }
 
-			if (!searchResults?.length) {
-				toast.info("No similar projects found");
-				return [];
-			}
+      const projectDescriptions = searchResults
+        .map((match) => ({
+          id: match.metadata?.id,
+          description: match.metadata?.description,
+          score: match.score,
+        }))
+        .filter((item) => item.id && item.description)
+        .map(
+          (item) =>
+            `Project ${item.id}:\n${item.description}\nSimilarity: ${
+              item.score?.toFixed(2) || 0
+            }`,
+        )
+        .join("\n\n");
 
-			const projectDescriptions = searchResults
-				.map((match) => ({
-					id: match.metadata?.id,
-					description: match.metadata?.description,
-					score: match.score,
-				}))
-				.filter((item) => item.id && item.description)
-				.map(
-					(item) =>
-						`Project ${item.id}:\n${item.description}\nSimilarity: ${
-							item.score?.toFixed(2) || 0
-						}`
-				)
-				.join("\n\n");
+      const model = genAI.getGenerativeModel({
+        model: "gemini-1.5-flash",
+      });
 
-			const model = genAI.getGenerativeModel({
-				model: "gemini-1.5-flash-8b",
-			});
+      const prompt = PROMPT_TEMPLATE.replace(
+        "{context}",
+        projectDescriptions,
+      ).replace("{description}", description);
 
-			const prompt = PROMPT_TEMPLATE.replace(
-				"{context}",
-				projectDescriptions
-			).replace("{description}", description);
+      console.log("Prompt:", prompt);
 
-			toast.info("Analyzing similarities...");
-			const result = await model.generateContent(prompt);
-			const response = result.response.text();
+      toast.info("Analyzing similarities...");
+      const result = await model.generateContent(prompt);
+      const response = result.response.text();
+      console.log("AI Response:", response);
 
-			const projectIds = cleanAndParseResponse(response);
+      const projectResults = cleanAndParseResponse(response);
 
-			if (projectIds.length > 0) {
-				toast.success(`Found ${projectIds.length} matching projects`);
-				return projectIds;
-			}
+      if (projectResults.length > 0) {
+        toast.success(`Found ${projectResults.length} matching projects`);
+        return projectResults;
+      }
 
-			const fallbackIds = searchResults
-				.slice(0, 5)
-				.map((match) => match.metadata?.id)
-				.filter(Boolean) as string[];
+      const fallbackResults = searchResults
+        .slice(0, 5)
+        .map((match) => ({
+          id: match.metadata?.id as string,
+          similarity: match.score || 0,
+        }))
+        .filter((item) => item.id);
 
-			return fallbackIds;
-		} catch (error) {
-			if (error instanceof Error) {
-				toast.error(`Search failed: ${error.message}`);
-			} else {
-				toast.error("An unexpected error occurred during search");
-			}
-			return [];
-		} finally {
-			setIsSearching(false);
-		}
-	};
+      return fallbackResults;
+    } catch (error) {
+      if (error instanceof Error) {
+        toast.error(`Search failed: ${error.message}`);
+        console.error("Search error:", error);
+      } else {
+        toast.error("An unexpected error occurred during search");
+        console.error("Unexpected error:", error);
+      }
+      return [];
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
-	return {
-		searchProjects,
-		isSearching,
-	};
+  return {
+    searchProjects,
+    isSearching,
+  };
 };

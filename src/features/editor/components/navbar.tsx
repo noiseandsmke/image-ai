@@ -27,6 +27,88 @@ import { UserButton } from "@/features/auth/components/user-button";
 import { useMutationState } from "@tanstack/react-query";
 import { TiCloudStorage } from "react-icons/ti";
 import { useSaveDescription } from "@/features/editor/hooks/use-save-description";
+import { useRouter } from "next/navigation";
+import { useCreateProject } from "@/features/projects/use-create-project";
+import { toast } from "sonner";
+
+const createInitialJson = (width: number, height: number) => {
+	return JSON.stringify({
+		version: "5.3.0",
+		objects: [
+			{
+				type: "rect",
+				version: "5.3.0",
+				originX: "left",
+				originY: "top",
+				left: 266.5,
+				top: -278.5,
+				width: width,
+				height: height,
+				fill: "white",
+				stroke: null,
+				strokeWidth: 0,
+				strokeDashArray: null,
+				strokeLineCap: "butt",
+				strokeDashOffset: 0,
+				strokeLineJoin: "miter",
+				strokeUniform: false,
+				strokeMiterLimit: 4,
+				scaleX: 1,
+				scaleY: 1,
+				angle: 0,
+				flipX: false,
+				flipY: false,
+				opacity: 1,
+				shadow: null,
+				visible: true,
+				backgroundColor: "",
+				fillRule: "nonzero",
+				paintFirst: "fill",
+				globalCompositeOperation: "source-over",
+				skewX: 0,
+				skewY: 0,
+				rx: 0,
+				ry: 0,
+				name: "clip",
+			},
+		],
+		clipPath: {
+			type: "rect",
+			version: "5.3.0",
+			originX: "left",
+			originY: "top",
+			left: 266.5,
+			top: -278.5,
+			width: width,
+			height: height,
+			fill: "white",
+			stroke: null,
+			strokeWidth: 0,
+			strokeDashArray: null,
+			strokeLineCap: "butt",
+			strokeDashOffset: 0,
+			strokeLineJoin: "miter",
+			strokeUniform: false,
+			strokeMiterLimit: 4,
+			scaleX: 1,
+			scaleY: 1,
+			angle: 0,
+			flipX: false,
+			flipY: false,
+			opacity: 1,
+			shadow: null,
+			visible: true,
+			backgroundColor: "",
+			fillRule: "nonzero",
+			paintFirst: "fill",
+			globalCompositeOperation: "source-over",
+			skewX: 0,
+			skewY: 0,
+			rx: 0,
+			ry: 0,
+		},
+	});
+};
 
 interface NavbarProps {
 	id: string;
@@ -41,6 +123,8 @@ export const Navbar = ({
 	activeTool,
 	onChangeActiveTool,
 }: NavbarProps) => {
+	const router = useRouter();
+	const createProject = useCreateProject();
 	const saveDescription = useSaveDescription();
 
 	const data = useMutationState({
@@ -70,6 +154,32 @@ export const Navbar = ({
 		},
 	});
 
+	const handleCreateNew = async () => {
+		const width = 900;
+		const height = 1200;
+
+		try {
+			createProject.mutate(
+				{
+					name: "Untitled project",
+					json: createInitialJson(width, height),
+					width,
+					height,
+				},
+				{
+					onSuccess: ({ data }) => {
+						router.push(`/editor/${data.id}`);
+					},
+					onError: (error) => {
+						toast.error("Failed to create project. Please try again.");
+					},
+				}
+			);
+		} catch (error) {
+			toast.error("An unexpected error occurred");
+		}
+	};
+
 	const handleSaveDescription = () => {
 		if (!editor) return;
 
@@ -78,6 +188,7 @@ export const Navbar = ({
 			editor,
 		});
 	};
+
 	return (
 		<nav className="w-full flex items-center p-4 h-[68px] gap-x-8 border-b lg:pl-[34px]">
 			<Logo />
@@ -90,6 +201,18 @@ export const Navbar = ({
 						</Button>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="start" className="min-2-60">
+						<DropdownMenuItem
+							className="flex items-center gap-x-2"
+							onClick={handleCreateNew}
+						>
+							<CiFileOn className="size-8" />
+							<div>
+								<p>Create new project</p>
+								<p className="text-xs text-muted-foreground">
+									Start a new design
+								</p>
+							</div>
+						</DropdownMenuItem>
 						<DropdownMenuItem
 							className="flex items-center gap-x-2"
 							onClick={() => openFilePicker()}
@@ -109,8 +232,8 @@ export const Navbar = ({
 					<Button
 						variant="ghost"
 						size="icon"
-						onClick={() => onChangeActiveTool("select")} // TODO: Add functionality
-						className={cn(activeTool === "select" && "bg-gray-100")} // TODO: add dynamic classes
+						onClick={() => onChangeActiveTool("select")}
+						className={cn(activeTool === "select" && "bg-gray-100")}
 					>
 						<MousePointerClick className="size-4" />
 					</Button>
