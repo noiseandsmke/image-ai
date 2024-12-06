@@ -59,69 +59,42 @@ export const useSaveDescription = () => {
 
 				const imagePart = await imageToGenerativePart(imageFile);
 				const imageModel = genAI.getGenerativeModel({
-					model: "gemini-1.5-flash-8b",
+					model: "gemini-1.5-flash",
 				});
-				const imagePrompt = `Analyze this image and describe:
-          - Main visual elements (objects)
-          - Their distribution
-          - Colors present
-          - Overall composition
 
-          Provide only descriptive adjectives and nouns. No sentences.`;
+				const imagePrompt = `Analyze this image and return a single JSON object with this exact structure:
+        {
+          "id": "${id}",
+          "description": "[detected objects: list all visual objects like animals, mountains, houses, sun, people, etc.], [object positions and relationships], [text content if any], [colors used], [overall layout]"
+        }
 
-				const imageResult = await imageModel.generateContent([
+        Focus on identifying and listing:
+        1. Every visual object in the image (natural elements, buildings, creatures, people, symbols)
+        2. Their positions and how they relate to each other
+        3. Any text content present
+        4. Colors and visual style
+        5. Overall composition
+
+        Important:
+        - List ALL objects you can identify, no matter how small
+        - Describe spatial relationships between objects
+        - Include exact text if present
+        - Note color schemes and artistic style
+        - Keep descriptions precise and factual`;
+
+				const result = await imageModel.generateContent([
 					imagePrompt,
 					imagePart,
 				]);
-				const imageAnalysis = imageResult.response.text();
+				const finalText = result.response.text();
+				const analysisResult = JSON.parse(
+					finalText
+						.trim()
+						.replace(/```json\n?/g, "")
+						.replace(/```\n?/g, "")
+				);
+
 				toast.success("Image analysis completed");
-
-				toast.info("Generating description...");
-
-				const jsonModel = genAI.getGenerativeModel({
-					model: "gemini-1.5-flash",
-				});
-				const combinedPrompt = `Analyze the design content from both visual and technical data:
-
-				Visual analysis: ${imageAnalysis}
-				
-				Technical analysis: Extract from JSON:
-				1. Find all text content in "text" fields: ${JSON.stringify(
-					jsonData.objects
-						.filter((obj) => obj.type === "textbox")
-						.map((obj) => (obj as any).text)
-				)}
-				2. Analyze object properties and numerical values
-				3. Note any percentages, measurements, or specific numbers
-				
-				IMPORTANT: Create a comprehensive description that preserves:
-				- All exact text content
-				- All numerical values (especially percentages)
-				- Key visual elements
-				- Color schemes
-				- Layout characteristics
-				
-				Return a valid JSON object with this exact structure:
-				{
-					"id": "${id}",
-					"description": "text fields from JSON, design:[key visual elements], colors:[color scheme], layout:[composition details]"
-				}
-				
-				Ensure that:
-				1. All text content is preserved exactly as written
-				2. All numbers and percentages are included
-				3. Key design elements are described
-				4. Color information is accurate`;
-
-				const finalResult = await jsonModel.generateContent(combinedPrompt);
-				const finalText = finalResult.response.text();
-				let cleanText = finalText
-					.trim()
-					.replace(/```json\n?/g, "")
-					.replace(/```\n?/g, "");
-				const analysisResult = JSON.parse(cleanText);
-				toast.success("Description generated successfully");
-
 				toast.info("Creating embedding...");
 
 				const embeddingModel = genAI.getGenerativeModel({

@@ -22,9 +22,18 @@ export const SettingsSidebar = ({
 }: SettingsSidebarProps) => {
   const workspace = editor?.getWorkSpace();
 
-  const initialWidth = useMemo(() => `${workspace?.width}` ?? 0, [workspace]);
-  const initialHeight = useMemo(() => `${workspace?.height}` ?? 0, [workspace]);
-  const initialBackground = useMemo(() => workspace?.fill ?? "#ffffff", [workspace]);
+  const initialWidth = useMemo(
+    () => (workspace?.width ? `${workspace.width}` : "900"),
+    [workspace],
+  );
+  const initialHeight = useMemo(
+    () => (workspace?.height ? `${workspace.height}` : "1200"),
+    [workspace],
+  );
+  const initialBackground = useMemo(
+    () => workspace?.fill ?? "#ffffff",
+    [workspace],
+  );
 
   const [width, setWidth] = useState(initialWidth);
   const [height, setHeight] = useState(initialHeight);
@@ -34,11 +43,7 @@ export const SettingsSidebar = ({
     setWidth(initialWidth);
     setHeight(initialHeight);
     setBackground(initialBackground);
-  }, [
-    initialWidth,
-    initialHeight,
-    initialBackground,
-  ]);
+  }, [initialWidth, initialHeight, initialBackground]);
 
   const changeWidth = (value: string) => setWidth(value);
   const changeHeight = (value: string) => setHeight(value);
@@ -58,26 +63,24 @@ export const SettingsSidebar = ({
 
   const onClose = () => {
     onChangeActiveTool("select");
-  }
+  };
 
   return (
     <aside
       className={cn(
         "bg-white relative border-r z-[40] w-[360px] h-full flex flex-col",
-        activeTool === "settings" ? "visible" : "hidden"
+        activeTool === "settings" ? "visible" : "hidden",
       )}
     >
-      <ToolSidebarHeader 
+      <ToolSidebarHeader
         title="Settings"
         description="Change the look of your workspace"
       />
       <ScrollArea>
         <form onSubmit={onSubmit} className="space-y-4 p-4">
           <div className="p-4 space-y-2">
-            <Label>
-              Height
-            </Label>
-            <Input 
+            <Label>Height</Label>
+            <Input
               placeholder="Height"
               value={height}
               type="number"
@@ -85,10 +88,8 @@ export const SettingsSidebar = ({
             />
           </div>
           <div className="p-4 space-y-2">
-            <Label>
-              Width
-            </Label>
-            <Input 
+            <Label>Width</Label>
+            <Input
               placeholder="Width"
               value={width}
               type="number"
@@ -100,13 +101,13 @@ export const SettingsSidebar = ({
           </Button>
         </form>
         <div className="p-4">
-          <ColorPicker 
+          <ColorPicker
             value={background as string}
-            onChange={changeBackground} 
+            onChange={changeBackground}
           />
         </div>
       </ScrollArea>
-      <ToolSidebarClose onClick={onClose}/>
+      <ToolSidebarClose onClick={onClose} />
     </aside>
-  )
+  );
 };
