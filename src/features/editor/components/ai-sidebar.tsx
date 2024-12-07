@@ -36,7 +36,8 @@ export const AiSidebar = ({
   const params = useParams();
   const currentProjectId = params.projectId as string;
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const { searchProjects, isSearching } = useSearchProjects();
+  const [isSearching, setIsSearching] = useState(false);
+  const { searchProjects } = useSearchProjects();
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   const [ConfirmationDialog, confirm] = useConfirm(
     "Switch Project",
@@ -46,10 +47,18 @@ export const AiSidebar = ({
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
+      setIsSearching(true);
+
+      while (hasNextPage) {
+        await fetchNextPage();
+      }
+
       const results = await searchProjects(value);
       setSearchResults(results);
     } catch (error) {
       toast.error("Failed to process search");
+    } finally {
+      setIsSearching(false);
     }
   };
 
