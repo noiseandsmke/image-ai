@@ -14,7 +14,6 @@ interface EditorProjectIdPageProps {
 
 const EditorProjectIdPage = ({ params }: EditorProjectIdPageProps) => {
 	const { data, isLoading, isError } = useGetProject(params.projectId);
-	console.log(data);
 
 	if (isLoading || !data) {
 		return (
