@@ -1,30 +1,30 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export class GeminiService {
-  private static instance: GeminiService;
-  private client: GoogleGenerativeAI;
+	private static instance: GeminiService;
+	private client: GoogleGenerativeAI;
 
-  private constructor() {
-    this.client = new GoogleGenerativeAI(
-      process.env.NEXT_PUBLIC_GEMINI_API_KEY!,
-    );
-  }
+	private constructor() {
+		this.client = new GoogleGenerativeAI(
+			process.env.NEXT_PUBLIC_GEMINI_API_KEY!
+		);
+	}
 
-  public static getInstance(): GeminiService {
-    if (!GeminiService.instance) {
-      GeminiService.instance = new GeminiService();
-    }
-    return GeminiService.instance;
-  }
+	public static getInstance(): GeminiService {
+		if (!GeminiService.instance) {
+			GeminiService.instance = new GeminiService();
+		}
+		return GeminiService.instance;
+	}
 
-  async generateImageAnalysis(id: string, imageFile: File) {
-    try {
-      const imagePart = await this.imageToGenerativePart(imageFile);
-      const imageModel = this.client.getGenerativeModel({
-        model: "gemini-1.5-flash",
-      });
+	async generateImageAnalysis(id: string, imageFile: File) {
+		try {
+			const imagePart = await this.imageToGenerativePart(imageFile);
+			const imageModel = this.client.getGenerativeModel({
+				model: "gemini-1.5-flash",
+			});
 
-      const imagePrompt = `Analyze this image and return a single JSON object with this exact structure:
+			const imagePrompt = `Analyze this image and return a single JSON object with this exact structure:
         {
           "id": "${id}",
           "description": "[detected objects: list all visual objects like animals, mountains, houses, sun, people, etc.], [object positions and relationships], [text content if any], [colors used], [overall layout]"
@@ -44,41 +44,41 @@ export class GeminiService {
         - Note color schemes and artistic style
         - Keep descriptions precise and factual`;
 
-      const result = await imageModel.generateContent([imagePrompt, imagePart]);
-      const finalText = result.response.text();
-      return JSON.parse(
-        finalText
-          .trim()
-          .replace(/```json\n?/g, "")
-          .replace(/```\n?/g, ""),
-      );
-    } catch (error) {
-      throw error;
-    }
-  }
+			const result = await imageModel.generateContent([imagePrompt, imagePart]);
+			const finalText = result.response.text();
+			return JSON.parse(
+				finalText
+					.trim()
+					.replace(/```json\n?/g, "")
+					.replace(/```\n?/g, "")
+			);
+		} catch (error) {
+			throw error;
+		}
+	}
 
-  async generateEmbedding(text: string) {
-    try {
-      const embeddingModel = this.client.getGenerativeModel({
-        model: "text-embedding-004",
-      });
-      const embeddingResult = await embeddingModel.embedContent(text);
-      return embeddingResult.embedding.values;
-    } catch (error) {
-      throw error;
-    }
-  }
+	async generateEmbedding(text: string) {
+		try {
+			const embeddingModel = this.client.getGenerativeModel({
+				model: "text-embedding-004",
+			});
+			const embeddingResult = await embeddingModel.embedContent(text);
+			return embeddingResult.embedding.values;
+		} catch (error) {
+			throw error;
+		}
+	}
 
-  async analyzeSimilarProjects(
-    searchDescription: string,
-    projectDescriptions: string,
-  ) {
-    try {
-      const model = this.client.getGenerativeModel({
-        model: "gemini-1.5-flash",
-      });
+	async analyzeSimilarProjects(
+		searchDescription: string,
+		projectDescriptions: string
+	) {
+		try {
+			const model = this.client.getGenerativeModel({
+				model: "gemini-1.5-flash",
+			});
 
-      const prompt = `
+			const prompt = `
         Based on the provided descriptions, analyze and find similar projects.
         Compare the search description with the stored project descriptions and return projects with their EXACT similarity scores.
 
@@ -105,26 +105,26 @@ export class GeminiService {
 
         Return a valid JSON array of objects with 'id' and 'similarity' properties.`;
 
-      const result = await model.generateContent(prompt);
-      const response = result.response.text();
-      return JSON.parse(
-        response
-          .trim()
-          .replace(/```json\n?/g, "")
-          .replace(/```\n?/g, ""),
-      );
-    } catch (error) {
-      throw error;
-    }
-  }
+			const result = await model.generateContent(prompt);
+			const response = result.response.text();
+			return JSON.parse(
+				response
+					.trim()
+					.replace(/```json\n?/g, "")
+					.replace(/```\n?/g, "")
+			);
+		} catch (error) {
+			throw error;
+		}
+	}
 
-  private async imageToGenerativePart(imageFile: File) {
-    const buffer = await imageFile.arrayBuffer();
-    return {
-      inlineData: {
-        data: Buffer.from(buffer).toString("base64"),
-        mimeType: imageFile.type,
-      },
-    };
-  }
+	private async imageToGenerativePart(imageFile: File) {
+		const buffer = await imageFile.arrayBuffer();
+		return {
+			inlineData: {
+				data: Buffer.from(buffer).toString("base64"),
+				mimeType: imageFile.type,
+			},
+		};
+	}
 }
